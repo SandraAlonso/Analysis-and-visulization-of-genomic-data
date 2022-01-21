@@ -1,0 +1,186 @@
+---
+title: "Practice 3"
+output: html_notebook
+---
+
+```{r}
+library(matlib)
+library(rlang)
+library(openxlsx)
+library(Seurat)
+library(Matrix)
+library(dplyr)
+```
+
+## Using the raw data in file “SCOplanaria.txt” do:
+1. Initialize a Seurat object.
+2. Perform quality control, normalization, variable features selection and scaling of the data.
+3. Perform a PCA analysis and obtain a t-SNE clustering plot.
+
+```{r}
+library(patchwork)
+# Uploading data
+data <- read.table("SCOplanaria.txt", row.names=1) 
+```
+
+## My own parameters
+```{r}
+# Create a new Seurat Object --------------------------------------------
+dataMatrix = as.matrix(data)                               # For this task it is mandatory to create a matrix
+datasparseMatrix = Matrix(data=dataMatrix, sparse=TRUE)    # And sparse it
+
+# Using my own parametres:
+seurat1 = CreateSeuratObject(counts=datasparseMatrix, project="SCOP", min.cells=1, min.features=1)
+
+#Quality Control --------------------------------------------------------
+head(seurat1@meta.data, 5)
+# Visualize QC metrics as a violin plot
+VlnPlot(seurat1, features = c("nFeature_RNA", "nCount_RNA"), ncol = 2)
+
+
+# Normalizing the data -------------------------------------------------
+seurat1[["RNA"]]@data
+seurat1<- NormalizeData(seurat1)
+Normalized.Reads <- colSums(seurat1[["RNA"]]@data)
+seurat1 <- AddMetaData (seurat1,Normalized.Reads,col.name="Normalized_nCount_RNA")
+#print(Normalized.Reads)
+#head(seurat1[["RNA"]]@data, 5)
+#head(seurat1@meta.data, 5)
+VlnPlot(object = seurat1, features= c("nCount_RNA", "Normalized_nCount_RNA"), ncol = 2)
+
+
+# Feature selection --------------------------------------------------
+seurat1 <- FindVariableFeatures(seurat1, selection.method = "vst", nfeatures = 1000)
+# plot variable features without labels
+plot1 <-  LabelPoints(plot=VariableFeaturePlot(seurat1), 
+                 points=head(VariableFeatures(seurat1),3), repel=TRUE)
+plot1
+
+# Scaling the data --------------------------------------------------
+all.genes <- rownames(seurat1)
+seurat1 <- ScaleData(seurat1, features = all.genes)
+
+# Perform a PCA analysis -------------------------------------------
+seurat1pca <- RunPCA(seurat1, features = VariableFeatures(object = seurat1))
+
+# Obtain a t-SNE clustering plot -----------------------------------
+seurat1pcaplot = FindNeighbors(seurat1pca, dims=1:5)
+seurat1pcaplot = FindClusters(seurat1pcaplot, resolution=0.2)
+seurat1 <- RunTSNE(seurat1pcaplot, dims = 1:5)
+DimPlot(seurat1, reduction = "tsne")
+
+```
+## Given paramters
+
+```{r}
+# Create a new Seurat Object
+dataMatrix = as.matrix(data)                               # For this task it is mandatory to create a matrix
+datasparseMatrix = Matrix(data=dataMatrix, sparse=TRUE)    # And sparse it
+
+# Inlcuding new parametres:
+#Keep genes expressed in at least 3 cells and cells with at least 200 genes detected.
+seurat2 = CreateSeuratObject(counts=datasparseMatrix, project="SCOP", min.cells=3, min.features=200)
+
+#Quality Control is automatically calculated during CreateSeuratObject()
+head(seurat2@meta.data, 5)
+# Visualize QC metrics as a violin plot
+VlnPlot(seurat2, features = c("nFeature_RNA", "nCount_RNA"), ncol = 2)
+
+# Keep cells with 200- 2500 number of detected genes
+seurat2Subset = subset(seurat2, subset=nFeature_RNA>200&nFeature_RNA<2500)
+
+# Use LogNormalize method with a scale factor of 10000.
+seurat2Subset[["RNA"]]@data
+seurat2Normalizated = NormalizeData(seurat2Subset, normalization.method="LogNormalize", scale.factor=10000)
+
+Normalized.nCounts <- colSums(seurat2Normalizated[["RNA"]]@data)
+seurat2Normalizated <- AddMetaData (seurat2Normalizated,Normalized.nCounts,col.name="Normalized_nCount_RNA")
+VlnPlot(object = seurat2Normalizated, features= c("nCount_RNA", "Normalized_nCount_RNA"), ncol = 2)
+
+# Select 3000 variable features
+seurat2Normalizated <- FindVariableFeatures(seurat2Normalizated, selection.method = "vst", nfeatures = 3000)
+plot2 = LabelPoints(plot=VariableFeaturePlot(seurat2Normalizated), 
+                 points=head(VariableFeatures(seurat2Normalizated),2), repel=TRUE)
+plot2
+
+# Regress out variability for number of genes in each cell.
+seurat2Normalizated = ScaleData(seurat2Normalizated, features=rownames(seurat2Normalizated))
+
+# Use PCs 1-5 and a resolution value of 0.6, t-SNE 
+seurat2_pca <- RunPCA(seurat2Normalizated, features = VariableFeatures(object = seurat2Normalizated))
+
+seurat2_pca_plot = FindNeighbors(seurat2_pca, dims=1:5)
+seurat2_pca_plot = FindClusters(seurat2_pca_plot, resolution=0.6)
+seurat2 <- RunTSNE(seurat2_pca_plot, dims = 1:5)
+DimPlot(seurat2, reduction = "tsne")
+```
+
+## Extract a table of the 5 top biomarkers for each of your clusters. Use these biomarkers to generate a heatmap. Comment the results
+
+```{r}
+biomarkers = FindAllMarkers(seurat2, only.pos=TRUE, min.pct=0.25, logfc.threshold=0.25)
+biomarkers_top5 = biomarkers %>% group_by(cluster) %>% top_n(n=5)
+
+#Visualize as heatmap
+DoHeatmap(seurat2, features=biomarkers_top5$gene) 
+```
+
+
+## Using VlnPlot() and FeaturePlot() functions, show the expression distribution of these markers along your clusters. With this information, identify and rename your clusters. 
+```{r}
+cluster.id = c("Early epidermal progenitors", "Late epidermal progenitors",
+                  "Epidermis", "Muscle progenitors",
+                  "Muscle body", "Neural progenitors",
+                  "GABA neurons", "Phagocytes",
+                  "Parenchymal cells", "Pigment")
+
+names(cluster.id) <- levels(seurat2)
+seurat2 <- RenameIdents(seurat2, cluster.id)
+DimPlot(seurat2, reduction = "tsne", label = TRUE, pt.size = 0.5) + NoLegend()
+
+VlnPlot(seurat2, features= "dd-Smed-v6-61-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-2178-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-298-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-1410-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-702-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-2548-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-9977-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-48-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-175-0")   
+VlnPlot(seurat2, features= "dd-Smed-v6-1161-1")   
+
+FeaturePlot(seurat2, features= "dd-Smed-v6-61-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-2178-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-298-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-1410-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-702-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-2548-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-9977-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-48-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-175-0")   
+FeaturePlot(seurat2, features= "dd-Smed-v6-1161-1")
+
+
+```
+## Compare your results with this lineage tree reconstruction of planarian cell types (Plass et al., 2018). What cell type do you think cluster 0 (the central cluster) 
+```{r}
+new.cluster.ids <- c("Neoblast", "neural progenitors",
+                     "early epidermal progenitors", "epidermis", 
+                     "GABA neurons", "parenchymal cells",
+                     "muscle body", "late epidermal progenitors",
+                     "mucle progenitors", "pigment", 
+                     "phagocytes")
+
+names(new.cluster.ids) <- levels(seurat2)
+seurat2 <- RenameIdents(seurat2, new.cluster.ids)
+DimPlot(seurat2, reduction = "tsne", label = TRUE, pt.size = 0.5) + NoLegend()
+```
+
+# dd-Smed-v6-1999-0 is a neoblast (stem) marker gene. Show its expression distribution with VlnPlot() and FeaturePlot() and explain the result.
+```{r}
+VlnPlot(seurat2, features = "dd-Smed-v6-1999-0")                  
+FeaturePlot(seurat2, features = "dd-Smed-v6-1999-0")
+DimPlot(seurat2, reduction = "tsne", label = TRUE, pt.size = 0.5) + NoLegend()
+
+```
+
