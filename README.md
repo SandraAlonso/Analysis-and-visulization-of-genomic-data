@@ -1,1 +1,1 @@
-# Analysis-and-visulization-of-genomic-data
+# Analysis and visulization of genomic data
