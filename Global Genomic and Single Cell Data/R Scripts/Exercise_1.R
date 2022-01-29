@@ -1,0 +1,132 @@
+##---
+##  title: "Practice 1"
+##  author: Sandra Alonso Paz
+## ---
+  
+## Calculate PCA among ground tissue samples for shr mutant, the wild type andthe complemented lines with several transcription factor
+
+# ------------------------------------------------------
+
+# Uploading data
+tablecsv <-read.csv("table_ex_1.csv",row.names=1)
+
+# Print data characteristics
+print("Column names")
+colnames(tablecsv)  # Column names
+
+print("Data size")
+dim(tablecsv)       # Data size
+
+print("Data saved as:")
+class(tablecsv)     # Data class (data frame)
+
+# ------------------------------------------------------
+
+# ------------------------------------------------------
+
+# Chose first 8 columns (needed information)
+data <- tablecsv[,1:8]
+
+# Keep gene id as rows
+rownames(data) <-rownames(tablecsv)
+
+# Change column names to be more clear
+colnames(data) <- c("shrJ0571","WT","shrJ0571+BLJ","shrJ0571+JKD","shrJ0571+MGP","shrJ0571+NUC","shrJ0571+IME","shrJ0571+SCR")
+
+# Show the result
+print(data)
+
+# ------------------------------------------------------
+
+# ------------------------------------------------------
+
+# Perform the PCA with the data prepared on last section
+PCA<-princomp(data,cor=FALSE,scores=TRUE)
+plot(PCA) # Print PCA results as a plot
+
+#Print PCA loaings and plot them
+plot(PCA$loadings, ylim = c(-0.6, 0.6))
+text(PCA$loadings,labels=row.names(PCA$loadings),pos=c(2,4,4,4,2,4)) # pos is the position of the label (1 = up, 2 = left, 3 = down and 4 = right)
+PCA$loadings 
+
+# ------------------------------------------------------
+
+## Create intermediate transcriptomes between shr mutant and the wild type (J0571)which represent 25%, 50% and 75% of recovery (complementation) in gene expres-sion.
+
+# ------------------------------------------------------
+
+# Recalculate each transcriptomic expression
+data2 <- transform(data, Complementation_25=(0.25*(WT)+0.75*shrJ0571), Complementation_50=(0.50*(WT)+0.50*shrJ0571), Complementation_75=(0.75*(WT)+0.25*shrJ0571))
+
+# Perform a PCA and plot it
+PCA2<-princomp(data2, cor=FALSE,scores=TRUE)
+plot(PCA2)
+
+#Print PCA loaings and plot them
+plot(PCA2$loadings, ylim = c(-0.6, 0.4))
+text(PCA2$loadings,labels=row.names(PCA2$loadings),pos=c(2,4,4,4,2,4,2,4,2))
+
+# Fast nterpretation
+# WT is Complementation_75
+# MGP Y IME are Complementation_50
+# BLJ is Complementation_25
+
+# With this study we will know for each mutant with trasncription factor if it is near the WT or the mutant and in which percentaje
+
+# ------------------------------------------------------
+
+## Add the transcriptome of cells corresponding to SCR domain and recalculate PCA. Plot variance for components and loadings.
+
+# ------------------------------------------------------
+
+# Join SCRdomain column of the given data to the data we are studying
+data3<-cbind(data2, tablecsv$SCRdomain )
+# Add a new column name for it
+colnames(data3) <- c("shrJ0571","WT","shrJ0571+BLJ","shrJ0571+JKD","shrJ0571+MGP","shrJ0571+NUC","shrJ0571+IME","shrJ0571+SCR", "Complementation_25", "Complementation_50", "Complementation_75","SCRdomain")
+# Keep genes id as row names
+rownames(data3) <-rownames(tablecsv)
+
+# Perform a new PCA and plot it
+PCA3<-princomp(data3,cor=FALSE,scores=TRUE)
+plot(PCA3)
+
+# Print and show PCA loadings
+plot(PCA3$loadings, ylim = c(-0.6, 0.4))
+text(PCA3$loadings,labels=row.names(PCA3$loadings),pos=c(2,2,4,4,2,4,4,4,2))
+PCA3$loadings 
+
+# ------------------------------------------------------
+
+## Find the most important genes which contributing to observed transcriptomic changes by extracting genes (~20) with highest and lowest score values
+
+# ------------------------------------------------------
+
+# Yelow will be the top expression
+newcolors<-colorRampPalette(colors=c("gray48","springgreen3","yellow"))(256)
+
+# Sort PCA scores odf component 1 (most expressed first) and take:
+sorted_comp1<-sort(PCA3$scores[,1])
+top20_comp1<-head(sorted_comp1, 20)   # The 20 first (more expressed)
+less20_comp1<-tail(sorted_comp1,20)   # And the 20 last (less expressed)
+
+# Sort PCA scores odf component 1 (most expressed first) and take:
+sorted_comp2<-sort(PCA3$scores[,2])
+top20_comp2<-head(sorted_comp2, 20)   # The 20 first (more expressed)
+less20_comp2<-tail(sorted_comp2,20)   # And the 20 last (less expressed)
+
+# Join top_20
+top_20_all=c(top20_comp1,top20_comp2)
+top_20_matrix=as.matrix(top_20_all)
+top20=data3[rownames(top_20_matrix),]
+top_20_final=as.matrix(top20)
+heatmap(top_20_final, col = newcolors)
+
+# Join less_20
+less_20_all=c(less20_comp1,less20_comp2)
+less_20_matrix=as.matrix(less_20_all)
+less20=data3[rownames(less_20_matrix),]
+less_20_final=as.matrix(less20)
+heatmap(less_20_final, col = newcolors)
+
+# ------------------------------------------------------
+
