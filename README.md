@@ -58,3 +58,13 @@ efficiency. Otherwise, when temperature gets a normal value and therefore is no 
 environment for Aquifex aeolicus, it stops growing and other bacteria take its place. However,
 normal temperatures and nitrogen left by Aquifex aeolicus, which is one of the main mineral salts
 needed by algae, creates a suitable environment for algae to grow.
+
+
+## Global Genomic and Single Cell Data Assignment
+### Description
+1. Practice 1: PCA for studying genetic expression on cell lines.
+2. Practice 2: PCA for detecting biomarkers on different cell lines.
+3. Parctice 3: t-SNE for building transcriptome atlas map.
+
+### Content
+This folder contains 3 RScripts developed for answering the research question and a general and a report which includes the results of each practice.
