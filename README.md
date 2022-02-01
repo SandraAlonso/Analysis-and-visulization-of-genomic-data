@@ -67,4 +67,4 @@ needed by algae, creates a suitable environment for algae to grow.
 3. Parctice 3: t-SNE for building transcriptome atlas map.
 
 ### Content
-This folder contains 3 RScripts developed for answering the research question and a general and a report which includes the results of each practice.
+This folder contains 3 RScripts (and 3 R Notebooks with the same code) developed for answering the research question and a general and a report which includes the results of each practice.
